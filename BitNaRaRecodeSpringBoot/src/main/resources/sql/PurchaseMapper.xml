@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--	
+	UserMapper.xml :: SQL 를 갖는 MetaData 
+	
+	- MyBatis Framework 은 XML MetaData 를 사용 SQL구문을 관리
+	  (SQL은 xml 을 통해 적절히 캡슐화 되어 애플리케이선 외부로 분리함)
+	- SQL문의 입력(?) / 출력(?)을 매핑한다.  <== 아래의 select element 참조
+ -->		
+ 					
+<mapper namespace="com.model2.mvc.service.purchase.dao.PurchaseDao">
+
+	<!-- 위의  namespace 이용 Application 에서 UserMapper.~~ 로 아래의 SQL 을 참조  
+	 	  :: 아래의 query 수행 후 결과 resultType 에 선언된 User Domain Object 
+	 	   	  Field ( property )에 자동연결(?,바인딩)
+	 	  :: SQL / Query 의 Alias 와 User Domain Object 의 Field 이름 동일한 것 확인.  -->
+  	
+  	<resultMap type="purchase" id="purchaseSelectMap">
+  		<result property="tranNo" column="tran_no" jdbcType="NUMERIC"/>
+  		<result property="purchaseProd.prodNo" column="prod_no" jdbcType="NUMERIC"/>
+  		<result property="buyer.userId" column="buyer_id" jdbcType="VARCHAR"/>
+  		<result property="paymentOption" column="payment_option" jdbcType="CHAR"/>
+  		<result property="receiverName" column="receiver_name" jdbcType="VARCHAR"/>
+  		<result property="receiverPhone" column="receiver_phone" jdbcType="VARCHAR"/>
+  		<result property="divyAddr" column="demailaddr" jdbcType="VARCHAR"/>
+  		<result property="divyRequest" column="dlvy_request" jdbcType="VARCHAR"/>
+  		<result property="tranAmount" column="tran_amount" jdbcType="NUMERIC"/>
+  		<result property="tranCode" column="tran_status_code" jdbcType="CHAR"/>
+  		<result property="orderDate" column="order_date" jdbcType="DATE"/>
+  		<result property="divyDate" column="dlvy_date" jdbcType="DATE"/>
+  	</resultMap>
+  	
+  	<resultMap type="cart" id="cartSelectMap">
+  		<result property="cartId" column="cart_id" jdbcType="NUMERIC"/>
+  		<result property="cartProd.prodNo" column="prod_no" jdbcType="NUMERIC"/>
+  		<result property="buyer.userId" column="user_id" jdbcType="VARCHAR"/>
+  		<result property="cartAmount" column="cart_amount" jdbcType="NUMERIC"/>
+  		<result property="checkActive" column="check_active" jdbcType="CHAR"/>
+  	</resultMap>
+  	
+  	
+  	<insert id="addPurchase" parameterType="purchase">
+		INSERT 
+		INTO transaction (tran_no,prod_no,buyer_id,payment_option,receiver_name,receiver_phone
+								,demailaddr,dlvy_request,tran_amount,tran_status_code,order_date,dlvy_date) 
+		VALUES (			seq_transaction_tran_no.NEXTVAL, 
+								#{purchaseProd.prodNo}, 
+								#{buyer.userId}, 
+								#{paymentOption:CHAR}, 
+								#{receiverName:VARCHAR}, 
+								#{receiverPhone:VARCHAR},  
+								#{divyAddr:VARCHAR}, 
+								#{divyRequest:VARCHAR}, 
+								#{tranAmount:NUMERIC}, 
+								'2', 
+								SYSDATE, 
+								TO_DATE(#{divyDate:DATE}, 'YYYY/MM/DD') )		
+  	</insert>
+  	
+  	<select id="getSeq_transaction_tran_no" resultType="int">
+  		SELECT seq_transaction_tran_no.CURRVAL FROM dual
+  	</select>
+  	
+  	<select 	id="getPurchase" parameterType="int" resultMap="purchaseSelectMap">
+		SELECT tran_no,prod_no,buyer_id,payment_option,receiver_name,receiver_phone
+					,demailaddr,dlvy_request,tran_amount,tran_status_code,order_date,dlvy_date
+		FROM transaction  						
+		WHERE tran_no = #{tranNo}			
+  	</select>
+  	
+  	<update id="updatePurchase" parameterType="purchase">
+  		UPDATE transaction 
+  		<trim prefix="set" suffixOverrides=",">
+  			<if test="divyAddr != null">
+  				demailaddr = #{divyAddr}, 
+  			</if>
+  			<if test="divyDate != null">
+  				dlvy_date = #{divyDate}, 
+  			</if>
+  			<if test="divyRequest != null">
+  				dlvy_request = #{divyRequest}, 
+  			</if>
+  			<if test="paymentOption != null">
+  				payment_option = #{paymentOption}, 
+  			</if>
+  			<if test="receiverName != null">
+  				receiver_name = #{receiverName}, 
+  			</if>
+  			<if test="receiverPhone != null">
+  				receiver_phone = #{receiverPhone}, 
+  			</if>
+  			<if test="tranAmount != null">
+  				tran_amount = #{tranAmount}, 
+  			</if>
+  		</trim>	
+  		WHERE tran_no = #{tranNo}
+  	</update>
+  	
+  	<delete id="removePurchase" parameterType="int">
+  		DELETE 
+  		FROM transaction 
+  		WHERE tran_no = #{tranNo}
+  	</delete>
+  	
+  	<select id="getTotalCount" parameterType="map" resultType="int">
+  		SELECT COUNT(*) AS totalCount  
+  		FROM (SELECT * 
+  					FROM transaction 
+  					<where>
+  						<if test='!userId.equals("")'>
+  							buyer_id = #{userId}
+  						</if>
+  						<if test='!beginDate.equals("") and !endDate.equals("")'>
+	  						<if test='endDate.equals("SYSDATE")'>
+	  							AND  order_date BETWEEN #{beginDate} AND SYSDATE
+	  						</if>
+	  						<if test='!endDate.equals("SYSDATE")'>
+	  							AND  order_date BETWEEN #{beginDate} AND #{endDate}
+	  						</if>
+  						</if>
+  					</where>
+  					) countTable
+  	</select>
+
+  	<select 	id="getPurchaseList" parameterType="map" resultMap="purchaseSelectMap">
+		SELECT * 
+		FROM ( SELECT inner_table. * ,  ROWNUM AS row_seq 
+					 FROM (SELECT *
+					 			FROM transaction 
+					 			<where>
+					 			<if test='!userId.equals("")'>
+  									buyer_id = #{userId}
+  								</if>
+		  						<if test='!beginDate.equals("") and !endDate.equals("")'>
+			  						<if test='endDate.equals("SYSDATE")'>
+			  							AND  order_date BETWEEN #{beginDate} AND SYSDATE
+			  						</if>
+			  						<if test='!endDate.equals("SYSDATE")'>
+			  							AND  order_date BETWEEN #{beginDate} AND #{endDate}
+			  						</if>
+		  						</if>
+		  						</where>
+			  					ORDER BY order_date DESC
+			  					)  inner_table 
+			  		WHERE ROWNUM &lt;= #{endRowNum}	)
+		WHERE row_seq BETWEEN #{startRowNum} AND #{endRowNum} 
+  	</select>
+  	
+  	<update id="updateTranCode" parameterType="purchase">
+  		UPDATE transaction 
+  		<trim prefix="set" suffixOverrides=",">
+  			<if test="tranCode != null">
+				<if test='tranCode.equals("2")'>
+					tran_status_code = '3'
+				</if>
+				<if test='tranCode.equals("3")'>
+					tran_status_code = '4'
+				</if>
+			</if>
+  		</trim>	
+  		<where>
+  			<if test='tranNo != null'>
+				tran_no = #{tranNo}
+			</if>
+		</where>
+  	</update>
+  	
+  	
+  	
+  	
+  	
+  	
+  	
+  	
+  	<insert id="addCart" parameterType="cart">
+		INSERT 
+		INTO cart (cart_id,prod_no,user_id,cart_amount,check_active) 
+		VALUES (			seq_cart_cart_id.NEXTVAL, 
+								#{cartProd.prodNo}, 
+								#{buyer.userId}, 
+								#{cartAmount:NUMERIC},
+								'1' )		
+  	</insert>
+  	
+  	<select id="getSeq_cart_cart_id" resultType="int">
+  		SELECT seq_cart_cart_id.CURRVAL FROM dual
+  	</select>
+  	
+  	<select 	id="getCartList" parameterType="map" resultMap="cartSelectMap">
+  		SELECT * 
+		FROM ( SELECT inner_table. * ,  ROWNUM AS row_seq 
+					 FROM (SELECT cart_id,prod_no,user_id,cart_amount,check_active
+								FROM cart  						
+								WHERE user_id = #{userId}
+					 			ORDER BY cart_id
+			  		 			)  inner_table 
+			  		 WHERE ROWNUM &lt;= #{endRowNum}	)
+		WHERE row_seq BETWEEN #{startRowNum} AND #{endRowNum} 	
+  	</select>
+  	
+  	<select 	id="getCartTotalCount" parameterType="string" resultType="int">
+		SELECT COUNT(*) AS totalCount  
+  		FROM (SELECT *
+  					FROM cart  						
+					WHERE user_id = #{userId} ) countTable	
+  	</select>
+  	
+  	<update id="updateCartAmount" parameterType="cart">
+  		UPDATE cart 
+  		<trim prefix="set" suffixOverrides=",">
+  			<if test="cartAmount != null">
+  				cart_amount = #{cartAmount}, 
+  			</if>
+  		</trim>	
+  		WHERE cart_id = #{cartId}
+  	</update>
+  	
+  	<update id="updateCartCheckActive" parameterType="int">
+  		UPDATE cart 
+  		<trim prefix="set" suffixOverrides=",">
+  			<if test="checkActive != null">
+  				check_active = '0' 
+  			</if>
+  		</trim>	
+  		WHERE cart_id = #{cartId}
+  	</update>
+  	
+</mapper>
